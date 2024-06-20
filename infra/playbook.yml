@@ -1,0 +1,126 @@
+- name: Configure and Run podman containers
+  hosts: all
+  become: yes
+
+  collections:
+    - containers.podman
+
+  tasks:
+    - name: Check if Podman is installed
+      command: podman --version
+      register: podman_version
+      ignore_errors: yes
+
+    - name: Fail if Podman is not installed
+      fail:
+        msg: "Podman is not installed. Please install Podman before running this playbook."
+      when: podman_version.rc != 0
+
+    - name: Remove existing backend container if any
+      command: podman rm -f backend
+      ignore_errors: yes
+      failed_when: false
+
+    - name: Remove existing database container if any
+      command: podman rm -f database
+      ignore_errors: yes
+      failed_when: false
+
+    - name: Remove existing frontend container if any
+      command: podman rm -f frontend
+      ignore_errors: yes
+      failed_when: false
+
+    - name: Remove existing internal network if any
+      command: podman network rm -f internal_network
+      ignore_errors: yes
+      failed_when: false
+
+    - name: Remove existing external network if any
+      command: podman network rm -f external_network
+      ignore_errors: yes
+      failed_when: false
+
+    - name: Create internal network
+      command: podman network create --subnet 10.0.1.0/24 internal_network
+
+    - name: Create external network
+      command: podman network create --subnet 10.0.2.0/24 external_network
+
+    - name: Run database container
+      containers.podman.podman_container:
+        name: database
+        image: docker.io/library/postgres:latest
+        env:
+          POSTGRES_DB: mydatabase
+          POSTGRES_USER: myuser
+          POSTGRES_PASSWORD: mypassword
+        network: internal_network
+        ip: 10.0.1.2
+        state: started
+        restart_policy: always
+
+    - name: Create table 'dados' in the database
+      command: podman exec database psql -U myuser -d mydatabase -c "CREATE TABLE IF NOT EXISTS dados (dado VARCHAR);"
+      retries: 10
+      delay: 3
+      register: create_table
+      until: create_table.rc == 0
+
+    - name: Insert data into 'dados' table
+      command: podman exec database psql -U myuser -d mydatabase -c "INSERT INTO dados (dado) VALUES ('Dado 1'), ('Dado 2'), ('Dado 3'), ('Dado 4'), ('Dado 5');"
+
+    - name: Run backend container
+      containers.podman.podman_container:
+        name: backend
+        image: docker.io/library/node:latest
+        command: "tail -f /dev/null"
+        network: internal_network
+        ip: 10.0.1.3
+        ports:
+          - "3000:3000"
+        state: started
+        restart_policy: always
+
+    - name: Connect backend container to external network
+      command: podman network connect --ip 10.0.2.3 external_network backend
+
+    - name: Create directory for backend application in container
+      containers.podman.podman_container_exec:
+        name: backend
+        command: mkdir -p /app
+
+    - name: Copy backend application code to container
+      command: podman cp backend/app.js backend:/app/app.js
+
+    - name: Install necessary npm packages in /app for backend
+      command: podman exec backend bash -c "cd /app && npm install express pg"
+
+    - name: Start backend application
+      command: podman exec -d backend node /app/app.js
+
+    - name: Run frontend container
+      containers.podman.podman_container:
+        name: frontend
+        image: docker.io/library/node:latest
+        command: "tail -f /dev/null"
+        network: external_network
+        ip: 10.0.2.4
+        ports:
+          - "80:80"
+        state: started
+        restart_policy: always
+
+    - name: Create directory for frontend application in container
+      containers.podman.podman_container_exec:
+        name: frontend
+        command: mkdir -p /app
+
+    - name: Copy frontend application code to container
+      command: podman cp frontend/app.js frontend:/app/app.js
+
+    - name: Install necessary npm packages in /app for frontend
+      command: podman exec frontend bash -c "cd /app && npm install express axios"
+
+    - name: Start frontend application
+      command: podman exec -d frontend node /app/app.js
