@@ -49,6 +49,29 @@ app.listen(3000, () => {
 });
 ```
 
+### Persistência de Dados
+Um aspecto crucial da configuração do banco de dados é a persistência de dados. Para garantir que os dados permaneçam seguros mesmo após o contêiner ser reiniciado ou destruído, configuramos um volume persistente no host. Isso é feito criando um diretório específico no sistema de arquivos do host e montando-o no contêiner do banco de dados.
+
+```yaml
+- name: Create a persistent volume for PostgreSQL
+  command: mkdir -p /var/lib/postgres_data
+
+- name: Run database container with persistent storage
+  containers.podman.podman_container:
+    name: database
+    image: docker.io/library/postgres:latest
+    env:
+      POSTGRES_DB: mydatabase
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+    network: internal_network
+    ip: 192.0.1.2
+    state: started
+    restart_policy: always
+    volume:
+          - "/var/lib/postgres_data:/var/lib/postgresql/data"
+```
+
 ### Frontend
 A aplicação frontend interage com o backend para receber e exibir dados, operando na porta 80.
 
@@ -60,7 +83,7 @@ const app = express();
 
 app.get('/', async (req, res) => {
   try {
-    const response = await axios.get('http://10.0.2.3:3000/data');
+    const response = await axios.get('http://192.0.2.3:3000/data');
     res.send(response.data);
   } catch (error) {
     res.status(500).send('Error fetching data from backend');

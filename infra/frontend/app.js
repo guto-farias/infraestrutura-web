@@ -4,7 +4,7 @@ const app = express();
 
 app.get('/', async (req, res) => {
   try {
-    const response = await axios.get('http://10.0.2.3:3000/data');
+    const response = await axios.get('http://192.0.2.3:3000/data');
     res.send(response.data);
   } catch (error) {
     res.status(500).send('Error fetching data from backend');
