@@ -24,7 +24,7 @@ O sistema é composto por três componentes principais, todos contêinerizados:
 ## 3. Configuração e Deploy dos Contêineres
 
 ### Backend
-A aplicação backend é uma API REST desenvolvida em Node.js, que se comunica com o banco de dados PostgreSQL para obter dados.
+A aplicação backend é uma API REST desenvolvida em Node.js, que se comunica com o banco de dados PostgreSQL para obter dados (apenas simbólicos).
 
 **Código do Backend (app.js):**
 ```javascript
@@ -50,7 +50,7 @@ app.listen(3000, () => {
 ```
 
 ### Persistência de Dados
-Um aspecto crucial da configuração do banco de dados é a persistência de dados. Para garantir que os dados permaneçam seguros mesmo após o contêiner ser reiniciado ou destruído, configuramos um volume persistente no host. Isso é feito criando um diretório específico no sistema de arquivos do host e montando-o no contêiner do banco de dados.
+ Para garantir que os dados permaneçam seguros mesmo após o contêiner ser reiniciado ou destruído, configurei um volume persistente no host. Isso é feito criando um diretório específico no sistema de arquivos do host e montando-o no contêiner do banco de dados. Assim mesmo que alterações sejam feitas no bd e o conteiner seja destruído, os dados são serão perdidos (visto que inicia com dados padrão).
 
 ```yaml
 - name: Create a persistent volume for PostgreSQL
