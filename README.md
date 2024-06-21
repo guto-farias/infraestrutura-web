@@ -1,62 +1,86 @@
+
 # Documentação do Projeto Final: Aplicação Web com Contêineres e Ansible
 
 ## 1. Introdução
 
 ### Objetivo do Projeto
-Este projeto tem como objetivo desenvolver uma aplicação web simples utilizando a arquitetura de microserviços. Para alcançar uma gestão eficiente dos componentes da aplicação, utilizamos contêineres para isolar cada serviço e o Ansible para automatizar o deployment e a configuração. A escolha dessa abordagem visa simplificar o processo de desenvolvimento, teste e produção, garantindo consistência e facilidade na escalabilidade e manutenção da aplicação.
+Este projeto visa desenvolver uma aplicação web simples utilizando arquitetura de microserviços com contêineres para cada componente e automação do deployment usando Ansible. O projeto foi desenvolvido e testado utilizando o ambiente de laboratório da Red Hat para Ansible, garantindo a aplicação de boas práticas e eficiência.
 
 ### Escopo do Projeto
-O sistema é composto por três principais componentes, todos contêinerizados e interconectados por uma rede interna, garantindo isolamento e segurança:
-- **Frontend**: Uma interface de usuário construída com uma tecnologia web moderna, servida por um servidor web contêinerizado.
-- **Backend**: Uma API REST desenvolvida em Node.js, rodando em um contêiner separado.
-- **Banco de Dados**: Um contêiner rodando PostgreSQL, responsável pelo armazenamento de dados da aplicação.
-
-Apenas o contêiner do frontend é exposto externamente, garantindo que toda comunicação com o backend e o banco de dados permaneça isolada e segura dentro da rede interna.
+O sistema é composto por três componentes principais, todos contêinerizados:
+- **Frontend**: Uma interface de usuário construída com Express e servida por um servidor web.
+- **Backend**: Uma API REST em Node.js que interage com um banco de dados PostgreSQL.
+- **Banco de Dados**: PostgreSQL gerenciado em um contêiner separado.
 
 ## 2. Requisitos do Sistema
 
 ### Hardware e Software
 - **Hardware**: Computador com pelo menos 4GB de RAM e 20GB de espaço disponível em disco.
-- **Software**: Sistema operacional Linux, Podman (versão mais recente), e Ansible (versão 2.9 ou superior).
+- **Software**: Podman (versão mais recente), Ansible (versão 2.9 ou superior), Node.js (versão 14.x ou superior).
 
 ### Dependências
-- **Node.js**: Versão 14.x ou superior.
-- **Bibliotecas de Node.js**: Express para o backend e Axios para o frontend.
-- **PostgreSQL**: Versão 12 ou superior para o banco de dados.
+- **Node.js**: Bibliotecas como Express, Axios e o módulo `pg` para PostgreSQL.
 
 ## 3. Configuração e Deploy dos Contêineres
 
-### Estrutura do Playbook
-O playbook utiliza a coleção `containers.podman` para gerenciar os contêineres, detalhando cada passo desde a instalação do Podman até o deployment efetivo dos serviços.
+### Backend
+A aplicação backend é uma API REST desenvolvida em Node.js, que se comunica com o banco de dados PostgreSQL para obter dados.
 
-### Tarefas Principais
-- **Verificação e instalação do Podman**: Assegura que o Podman esteja instalado e pronto para uso.
-- **Configuração das redes**: Cria redes internas e externas para isolamento dos serviços.
-- **Deployment dos contêineres**: Cada componente da aplicação é deployado em seu respectivo contêiner, utilizando imagens específicas e configurações de rede adequadas.
+**Código do Backend (app.js):**
+```javascript
+const express = require('express');
+const app = express();
+const { Pool } = require('pg');
+const pool = new Pool({
+  user: 'myuser',
+  host: 'database',
+  database: 'mydatabase',
+  password: 'mypassword',
+  port: 5432
+});
 
-### Gerenciamento de Redes
-Utiliza redes internas para comunicação segura entre o backend e o banco de dados, e uma rede externa para expor o frontend ao mundo externo.
+app.get('/data', async (req, res) => {
+  const result = await pool.query('SELECT dado FROM dados');
+  res.json(result.rows);
+});
+
+app.listen(3000, () => {
+  console.log('Backend running on port 3000');
+});
+```
+
+### Frontend
+A aplicação frontend interage com o backend para receber e exibir dados, operando na porta 80.
+
+**Código do Frontend (app.js):**
+```javascript
+const express = require('express');
+const axios = require('axios');
+const app = express();
+
+app.get('/', async (req, res) => {
+  try {
+    const response = await axios.get('http://10.0.2.3:3000/data');
+    res.send(response.data);
+  } catch (error) {
+    res.status(500).send('Error fetching data from backend');
+  }
+});
+
+app.listen(80, () => {
+  console.log('Frontend running on port 80');
+});
+```
 
 ## 4. Funcionamento do Playbook
 
-### Fluxo de Execução
-O playbook executa as tarefas sequencialmente, começando pela verificação do Podman, preparação das redes, e finalmente o deployment e configuração de cada contêiner.
-
-### Tratamento de Erros
-O playbook é projetado para lidar com erros, utilizando `ignore_errors` para continuar a execução mesmo em caso de falhas e condições `when` para tomadas de decisão baseadas no estado da execução.
+O playbook Ansible é configurado para gerenciar o deployment e a configuração de cada componente de forma automatizada, garantindo a consistência entre os ambientes de desenvolvimento e produção.
 
 ## 5. Conclusão
 
-### Benefícios do Uso de Ansible e Contêineres
-O uso de Ansible e contêineres proporciona uma maneira eficiente e escalável de gerenciar a infraestrutura e a configuração da aplicação, facilitando a replicação e a automação do ambiente.
-
-### Possíveis Melhorias
-Futuramente, o projeto pode incorporar melhorias como a integração com ferramentas de CI/CD, maior cobertura de testes e a utilização de orquestradores de contêineres como Kubernetes.
+Este projeto exemplifica a eficiência da utilização de contêineres e automação via Ansible no desenvolvimento de aplicações web, permitindo escalabilidade e facilidade na manutenção.
 
 ## 6. Apêndices
 
-### Código Completo do Playbook
-(Ver arquivo de playbook Ansible anexo)
-
-### Comandos e Configurações Adicionais
-Detalhes adicionais sobre comandos específicos e configurações podem ser incluídos aqui para auxiliar na replicação e entendimento do projeto.
+### Ambiente de Desenvolvimento
+Utilizei o lab Red Hat de Ansible como nosso ambiente de desenvolvimento principal para este projeto.
